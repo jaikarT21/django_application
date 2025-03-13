@@ -62,30 +62,15 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 EXPOSE 8000
 ```
 
-### **2.2 Create `docker-compose.yml`**
-```yaml
-version: '3'
-services:
-  web:
-    build: .
-    ports:
-      - "8000:8000"
-    environment:
-      - DEBUG=True
-```
-
-### **2.3 Build & Run Docker Container**
-```sh
-docker-compose up --build -d
-```
-
----
 
 ## **Step 3: Deploy to AWS EC2**
 
 ### **3.1 Launch EC2 Instance**
 - Go to **AWS EC2** → Launch **Ubuntu 22.04** instance.
 - Choose a **security group** that allows HTTP (80) & SSH (22).
+- Security Group:
+Allow port 22 (SSH) for your IP.
+Allow port 8000 (HTTP) from anywhere (0.0.0.0/0) for testing.
 - Connect via SSH:
   ```sh
   ssh -i my-key.pem ubuntu@your-ec2-ip
@@ -98,12 +83,6 @@ sudo systemctl start docker
 sudo systemctl enable docker
 ```
 
-### **3.3 Pull & Run Dockerized Django App**
-```sh
-git clone https://github.com/your-repo.git
-cd my_django_project
-docker-compose up --build -d
-```
 
 ---
 
@@ -118,17 +97,45 @@ docker-compose up --build -d
     - **helloworld-target-group** (for HelloWorld app)
     - **myworld-target-group** (for MyWorld app)
 
+
 ### **4.2 Register EC2 Instances to Target Groups**
 - Go to **Target Groups**.
+- Go to AWS Console → EC2 → Target Groups → Create Target Group
+Configure:
+Target Type: Instance
+Protocol: HTTP
+Port: 8000
+Health Check Path: /helloworld/
+Create Target Group
+Register Targets
+Select your EC2 instance and Register Targets.
 - Select **helloworld-target-group** → Register Targets → Select EC2 instance → Save.
 - Repeat for **myworld-target-group**.
 
 ### **4.3 Configure Listener Rules**
 - Navigate to **AWS Load Balancer → Listeners → View/Edit Rules**.
 - Add **Path-Based Routing Rules**:
+-  Step 2: Add Path-Based Routing Rules
+Click on "Add rule" → Insert Rule.
+Click "+ Add condition" → Path.
+In the Path field, enter:
+/helloworld/* → This rule applies to all requests starting with /helloworld/.
+Click "+ Add action" → Forward to...
+Select HelloWorld Target Group.
+Click Save Rule
+
   - If path is `/helloworld/*` → Forward to **helloworld-target-group**.
   - If path is `/myworld/*` → Forward to **myworld-target-group**.
 - Save the rules.
+
+ ### Example Listener Rule Priorities:
+ ## Priority in Listener Rules (AWS Application Load Balancer)
+In AWS Application Load Balancer (ALB), priority in listener rules determines the order in which rules are evaluated.
+
+Priority	Condition (Path)	Action (Target Group)
+1	/helloworld/*	Forward to HelloWorld TG
+2	/myworld/*	Forward to MyWorld TG
+Default	* (any other request)	Return 404 or another target
 
 ---
 
