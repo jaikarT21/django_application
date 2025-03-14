@@ -1,0 +1,61 @@
+pipeline {
+     agent any
+
+     environment {
+           /* register into the aws elastic registery */
+           registeryCredentials = 'ecr:us-east-1:awscreds'
+           appRegisteryName = '302263057737.dkr.ecr.us-east-1.amazonaws.com/djangoimg'
+           djnagoimgRegistery = 'https://302263057737.dkr.ecr.us-east-1.amazonaws.com/djangoimg'
+                  }
+     stages {
+
+         stage("fetch the code  "){
+
+              steps{
+                  git branch:'main',
+                  credentialsId: 'githubid',
+                  url: 'https://github.com/jaikarT21/django_application.git'
+
+                  
+                 
+                  }
+           }
+
+           stage("build the image"){
+
+            steps{
+
+               script{
+
+                  dockerImage = docker.build( appRegisteryName + ":$BUILD_NUMBER" , "/django_application/")
+               }
+            }
+           }
+
+           stage("push the image to ECR"){
+
+             steps{
+
+               script {
+                  docker.withRegistry(djnagoimgRegistery , registeryCredentials)
+                  {
+                       dockerImage.push("$BUILD_NUMBER")
+                        dockerImage.push("latest")
+
+                  }
+
+               }
+             }
+           }
+
+           stage ("remove container images"){
+
+            steps{
+                 /* command substitution */
+                sh 'docker rmi -f $(docker images -a -q)'
+            }
+           }
+
+     }
+
+}
