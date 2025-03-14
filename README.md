@@ -184,5 +184,5 @@ Default	* (any other request)	Return 404 or another target
 ---
 
 ## **Conclusion**
-You have successfully deployed a Django project with multiple applications on AWS using Docker, ALB, and EC2! 🚀
+successfully deployed a Django project with multiple applications on AWS using Docker, ALB, and EC2! 🚀
 
