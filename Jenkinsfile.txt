@@ -1,61 +1,44 @@
 pipeline {
-     agent any
+    agent any
 
-     environment {
-           /* register into the aws elastic registery */
-           registeryCredentials = 'ecr:us-east-1:awscreds'
-           appRegisteryName = '302263057737.dkr.ecr.us-east-1.amazonaws.com/djangoimg'
-           djnagoimgRegistery = 'https://302263057737.dkr.ecr.us-east-1.amazonaws.com/djangoimg'
-                  }
-     stages {
+    environment {
+        registryCredentials = 'ecr:us-east-1:awscreds'
+        appRegistryName = '302263057737.dkr.ecr.us-east-1.amazonaws.com/djangoimg'
+        djangoimgRegistry = '302263057737.dkr.ecr.us-east-1.amazonaws.com'
+    }
 
-         stage("fetch the code  "){
-
-              steps{
-                  git branch:'main',
-                  credentialsId: 'githubid',
-                  url: 'https://github.com/jaikarT21/django_application.git'
-
-                  
-                 
-                  }
-           }
-
-           stage("build the image"){
-
-            steps{
-
-               script{
-
-                  dockerImage = docker.build( appRegisteryName + ":$BUILD_NUMBER" , "/django_application/")
-               }
+    stages {
+        stage("Fetch the Code") {
+            steps {
+                git branch: 'main',
+                    credentialsId: 'githubid',
+                    url: 'https://github.com/jaikarT21/django_application.git'
             }
-           }
+        }
 
-           stage("push the image to ECR"){
+        stage("Build the Image") {
+            steps {
+                script {
+                    dockerImage = docker.build("${appRegistryName}:$BUILD_NUMBER", ".")
+                }
+            }
+        }
 
-             steps{
-
-               script {
-                  docker.withRegistry(djnagoimgRegistery , registeryCredentials)
-                  {
-                       dockerImage.push("$BUILD_NUMBER")
+        stage("Push the Image to ECR") {
+            steps {
+                script {
+                    withDockerRegistry([credentialsId: registryCredentials, url: "https://${djangoimgRegistry}"]) {
+                        dockerImage.push("$BUILD_NUMBER")
                         dockerImage.push("latest")
-
-                  }
-
-               }
-             }
-           }
-
-           stage ("remove container images"){
-
-            steps{
-                 /* command substitution */
-                sh 'docker rmi -f $(docker images -a -q)'
+                    }
+                }
             }
-           }
+        }
 
-     }
-
+        stage("Remove Container Images") {
+            steps {
+                sh 'docker rmi -f $(docker images -q) || true'
+            }
+        }
+    }
 }
