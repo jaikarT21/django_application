@@ -5,6 +5,8 @@ pipeline {
         registryCredentials = 'ecr:us-east-1:awscreds'
         appRegistryName = '302263057737.dkr.ecr.us-east-1.amazonaws.com/djangoimg'
         djangoimgRegistry = '302263057737.dkr.ecr.us-east-1.amazonaws.com'
+        cluster = "django-cluster"
+        service = "djangosvc"
     }
 
     stages {
@@ -35,9 +37,25 @@ pipeline {
             }
         }
 
-        stage("Remove Container Images") {
+        stage("Remove Local Docker Images") {
             steps {
                 sh 'docker rmi -f $(docker images -q) || true'
+            }
+        }
+
+        stage('Deploy to AWS ECS') {
+            steps {
+                withAWS(credentials: 'awscreds', region: 'us-east-1') {
+                    sh '''
+                        set -e
+                        echo "🚀 Updating ECS Service..."
+                        aws ecs update-service --cluster "$cluster" --service "$service" --force-new-deployment
+                        
+                        echo "⏳ Waiting for deployment to complete..."
+                        aws ecs wait services-stable --cluster "$cluster" --services "$service"
+                        echo "✅ Deployment successful!"
+                    '''
+                }
             }
         }
     }
