@@ -48,19 +48,33 @@ Jenkinsfile:
 ```groovy
 pipeline {
     agent any
+
     environment {
         registryCredentials = 'ecr:us-east-1:awscreds'
         appRegistryName = '302263057737.dkr.ecr.us-east-1.amazonaws.com/djangoimg'
         djangoimgRegistry = '302263057737.dkr.ecr.us-east-1.amazonaws.com'
+        cluster = "django-cluster"
+        service = "djangosvc"
     }
+
     stages {
-        stage("Fetch Code") {
-            steps { git branch: 'main', credentialsId: 'githubid', url: 'https://github.com/jaikarT21/django_application.git' }
+        stage("Fetch the Code") {
+            steps {
+                git branch: 'main',
+                    credentialsId: 'githubid',
+                    url: 'https://github.com/jaikarT21/django_application.git'
+            }
         }
-        stage("Build Image") {
-            steps { script { dockerImage = docker.build("${appRegistryName}:$BUILD_NUMBER", ".") } }
+
+        stage("Build the Image") {
+            steps {
+                script {
+                    dockerImage = docker.build("${appRegistryName}:$BUILD_NUMBER", ".")
+                }
+            }
         }
-        stage("Push to ECR") {
+
+        stage("Push the Image to ECR") {
             steps {
                 script {
                     withDockerRegistry([credentialsId: registryCredentials, url: "https://${djangoimgRegistry}"]) {
@@ -70,11 +84,32 @@ pipeline {
                 }
             }
         }
-        stage("Cleanup") {
-            steps { sh 'docker rmi -f $(docker images -q) || true' }
+
+        stage("Remove Local Docker Images") {
+            steps {
+                sh 'docker rmi -f $(docker images -q) || true'
+            }
+        }
+
+        stage('Deploy to AWS ECS') {
+            steps {
+                withAWS(credentials: 'awscreds', region: 'us-east-1') {
+                    sh '''
+                        set -e
+                        echo "🚀 Updating ECS Service..."
+                        aws ecs update-service --cluster "$cluster" --service "$service" --force-new-deployment
+                        
+                        echo "⏳ Waiting for deployment to complete..."
+                        aws ecs wait services-stable --cluster "$cluster" --services "$service"
+                        echo "✅ Deployment successful!"
+                    '''
+                }
+            }
         }
     }
 }
+
+
 ```
 
 ### 4. Deploy to AWS
